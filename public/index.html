@@ -89,21 +89,29 @@ table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;p
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-functions-compat.js"></script>
 <script>
-firebase.initializeApp({ /* WEKA firebaseConfig YAKO HAPA */ });
+firebase.initializeApp({
+    apiKey: "AIzaSyDu0NxexgUw7cTjBoc5R3quTKd2IgzZpQU",
+    authDomain: "mtaani-panel.firebaseapp.com",
+    projectId: "mtaani-panel",
+    storageBucket: "mtaani-panel.firebasestorage.app",
+    messagingSenderId: "492221973749",
+    appId: "1:492221973749:web:63d0162b8a892aee7f71bc",
+    measurementId: "G-PHFJDLZSPL"
+  });
 const auth = firebase.auth(), db = firebase.firestore(), fn = firebase.functions();
 const call = (n, d) => fn.httpsCallable(n)(d || {}).then(r => r.data);
 const $ = id => document.getElementById(id);
-const USD_KES = 130; // badilisha kulingana na rate ya siku
+const USD_KES = 130;
 
 function login(){ auth.signInWithEmailAndPassword($('em').value, $('pw').value).catch(e => $('lerr').textContent = e.message); }
 auth.onAuthStateChanged(u => {
-  $('login').hidden = !!u; $('app').hidden = !u;
+  $('login').hidden =!!u; $('app').hidden =!u;
   if (u) { watch(); }
 });
 $('tabs').onclick = e => {
   const t = e.target.dataset.t; if (!t) return;
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b === e.target));
-  ['num','smm','sales'].forEach(x => $('t-'+x).hidden = x !== t);
+  ['num','smm','sales'].forEach(x => $('t-'+x).hidden = x!== t);
 };
 
 let unsub = [];
@@ -114,17 +122,16 @@ function watch(){
   unsub.push(db.collection('sales').orderBy('at','desc').limit(200).onSnapshot(s => renderSales(s.docs.map(d => d.data()))));
 }
 const kes = n => 'KES ' + Math.round(n).toLocaleString();
-const when = t => t ? t.toDate().toLocaleString() : '';
+const when = t => t? t.toDate().toLocaleString() : '';
 function tbl(el, head, rows){
   el.innerHTML = '<tr>' + head.map(h => '<th>'+h+'</th>').join('') + '</tr>' + (rows.join('') || '<tr><td colspan="9" class="msg">Hakuna bado</td></tr>');
 }
 
-// ---------- NUMBERS ----------
 async function balNum(){ try { const r = await call('numBalance'); $('nmsg').textContent = 'Balance: ' + r.balance + ' (RUB)'; } catch(e){ $('nmsg').innerHTML = '<span class="err">'+e.message+'</span>'; } }
 async function buyNum(){
   const country = $('nc').value.trim().toLowerCase(), product = $('np').value.trim().toLowerCase();
   const price = +$('nprice').value, cust = $('ncust').value.trim();
-  if (!country || !product || !price || !cust) return $('nmsg').textContent = 'Jaza sehemu zote.';
+  if (!country ||!product ||!price ||!cust) return $('nmsg').textContent = 'Jaza sehemu zote.';
   $('nmsg').textContent = 'Inanunua...';
   try {
     const r = await call('numBuy', { country, product });
@@ -141,7 +148,7 @@ function renderNums(list){
 async function chk(docId, id){
   const r = await call('numCheck', { id });
   await db.collection('numbers').doc(docId).update({ status: r.status, sms: r.sms || [] });
-  if ((r.sms||[]).length && r.status !== 'FINISHED'){ await call('numFinish', { id }).catch(()=>{}); await logSale('Number', docId, 'numbers'); }
+  if ((r.sms||[]).length && r.status!== 'FINISHED'){ await call('numFinish', { id }).catch(()=>{}); await logSale('Number', docId, 'numbers'); }
 }
 async function cnl(docId, id){
   if (!confirm('Cancel na urudishiwe pesa?')) return;
@@ -149,26 +156,25 @@ async function cnl(docId, id){
   await db.collection('numbers').doc(docId).update({ status: r.status || 'CANCELED' });
 }
 
-// ---------- SMM ----------
 let services = [];
 async function balSmm(){ try { const r = await call('smmBalance'); $('smsg').textContent = 'Balance: ' + r.balance + ' ' + (r.currency||''); } catch(e){ $('smsg').innerHTML = '<span class="err">'+e.message+'</span>'; } }
 async function loadServices(){ $('sinfo').textContent = 'Inavuta...'; try { services = (await call('smmServices')).list; $('sinfo').textContent = services.length + ' huduma'; renderServices(); } catch(e){ $('sinfo').innerHTML = '<span class="err">'+e.message+'</span>'; } }
 function renderServices(){
   const q = $('sq').value.toLowerCase();
   $('ss').innerHTML = services.filter(s => (s.name+' '+s.category).toLowerCase().includes(q)).slice(0,100)
-    .map(s => `<option value="${s.service}">${esc(s.name)} — $${s.rate}/1000</option>`).join('');
+   .map(s => `<option value="${s.service}">${esc(s.name)} — $${s.rate}/1000</option>`).join('');
 }
 function cur(){ return services.find(s => s.service == $('ss').value); }
 function pickService(){ const s = cur(); if (s) $('sinfo').textContent = `Min ${s.min} / Max ${s.max} • Gharama $${s.rate} kwa 1000`; calc(); }
 function calc(){
-  const s = cur(), q = +$('sqty').value; if (!s || !q) return $('scalc').textContent = '';
+  const s = cur(), q = +$('sqty').value; if (!s ||!q) return $('scalc').textContent = '';
   const cost = s.rate * q / 1000 * USD_KES, sell = cost * +$('smark').value;
   $('scalc').textContent = `Gharama ${kes(cost)} • Uza ${kes(sell)} • Faida ${kes(sell-cost)}`;
   return { cost, sell };
 }
 async function orderSmm(){
   const s = cur(), q = +$('sqty').value, link = $('slink').value.trim(), cust = $('scust').value.trim();
-  if (!s || !q || !link || !cust) return $('smsg').textContent = 'Jaza sehemu zote.';
+  if (!s ||!q ||!link ||!cust) return $('smsg').textContent = 'Jaza sehemu zote.';
   if (q < +s.min || q > +s.max) return $('smsg').textContent = `Idadi iwe kati ya ${s.min} na ${s.max}.`;
   const { cost, sell } = calc();
   $('smsg').textContent = 'Inaagiza...';
@@ -186,7 +192,6 @@ function renderSmm(list){
 }
 async function stat(docId, order){ const r = await call('smmStatus', { order }); await db.collection('smm').doc(docId).update({ status: r.status }); }
 
-// ---------- SALES ----------
 async function logSale(type, refId, col){
   const d = (await db.collection(col).doc(refId).get()).data();
   const id = type + '_' + refId;
@@ -200,7 +205,7 @@ function renderSales(list){
   $('sumd').textContent = 'Mauzo ' + list.length + ' • Gharama ' + kes(cost) + ' • Faida ' + kes(rev - cost) + ' (gharama za numbers ziko kwa RUB, angalia mwenyewe)';
   tbl($('salestable'), ['Tarehe','Mteja','Kitu','Bei'], list.map(s => `<tr><td>${when(s.at)}</td><td>${esc(s.customer)}</td><td>${esc(s.item)}</td><td>${kes(s.price)}</td></tr>`));
 }
-function esc(t){ return String(t ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function esc(t){ return String(t?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 </script>
 </body>
-                                                                                          </html>
+</html>
