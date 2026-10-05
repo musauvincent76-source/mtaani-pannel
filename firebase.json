@@ -1,1 +1,5 @@
-
+{
+  "hosting": { "public": "public" },
+  "functions": [{ "source": "functions" }],
+  "firestore": { "rules": "firestore.rules" }
+}
