@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="sw">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Panel ya Admin</title>
+<style>
+:root{--bg:#f3f5f7;--card:#fff;--ink:#14202b;--mute:#667585;--line:#dde3e9;--main:#0b6e4f;--bad:#b3261e}
+*{box-sizing:border-box}body{margin:0;font:15px/1.5 system-ui,sans-serif;background:var(--bg);color:var(--ink)}
+header{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:var(--ink);color:#fff}
+nav{display:flex;gap:4px;padding:8px 12px;background:var(--card);border-bottom:1px solid var(--line);overflow-x:auto}
+nav button{border:0;background:none;padding:8px 14px;border-radius:6px;color:var(--mute);cursor:pointer;font:inherit;white-space:nowrap}
+nav button.on{background:var(--main);color:#fff}
+main{max-width:900px;margin:0 auto;padding:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:14px;margin-bottom:14px}
+h2{margin:0 0 10px;font-size:17px}
+input,select,button.b{font:inherit;padding:9px 10px;border:1px solid var(--line);border-radius:6px;margin:3px 0;width:100%}
+button.b{background:var(--main);color:#fff;border:0;cursor:pointer;width:auto;padding:9px 16px}
+button.b.s{background:var(--mute)}button.b.d{background:var(--bad)}
+.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;padding:7px 6px;border-bottom:1px solid var(--line)}
+.wrap{overflow-x:auto}.msg{color:var(--mute);margin:6px 0}.err{color:var(--bad)}
+.code{font-size:22px;font-weight:700;letter-spacing:2px}
+#login{max-width:340px;margin:12vh auto;padding:16px}
+:focus-visible{outline:2px solid var(--main);outline-offset:2px}
+</style>
+</head>
+<body>
+<div id="login" class="card">
+  <h2>Ingia (admin)</h2>
+  <input id="em" type="email" placeholder="Email" autocomplete="username">
+  <input id="pw" type="password" placeholder="Password" autocomplete="current-password">
+  <button class="b" onclick="login()">Ingia</button>
+  <div id="lerr" class="err"></div>
+</div>
+
+<div id="app" hidden>
+<header><strong>Panel ya Admin</strong><button class="b s" onclick="auth.signOut()">Toka</button></header>
+<nav id="tabs">
+  <button data-t="num" class="on">Numbers</button>
+  <button data-t="smm">SMM</button>
+  <button data-t="sales">Mauzo</button>
+</nav>
+<main>
+ <section id="t-num">
+  <div class="card"><h2>Nunua number</h2>
+   <div class="row">
+    <input id="nc" placeholder="Nchi (mfano england)">
+    <input id="np" placeholder="Huduma (mfano whatsapp)">
+    <input id="ncust" placeholder="Jina la mteja">
+    <input id="nprice" type="number" placeholder="Bei unayouza (KES)">
+   </div>
+   <button class="b" onclick="buyNum()">Nunua</button>
+   <button class="b s" onclick="balNum()">Balance ya 5sim</button>
+   <div id="nmsg" class="msg"></div>
+  </div>
+  <div class="card"><h2>Numbers zilizonunuliwa</h2><div class="wrap"><table id="ntable"></table></div></div>
+ </section>
+
+ <section id="t-smm" hidden>
+  <div class="card"><h2>Huduma za SMM</h2>
+   <button class="b s" onclick="loadServices()">Vuta huduma</button>
+   <button class="b s" onclick="balSmm()">Balance ya provider</button>
+   <input id="sq" placeholder="Tafuta huduma (mfano instagram followers)" oninput="renderServices()">
+   <select id="ss" size="6" onchange="pickService()"></select>
+   <div id="sinfo" class="msg"></div>
+   <div class="row">
+    <input id="slink" placeholder="Link">
+    <input id="sqty" type="number" placeholder="Idadi" oninput="calc()">
+    <input id="smark" type="number" value="1.5" step="0.1" oninput="calc()" title="Markup">
+    <input id="scust" placeholder="Jina la mteja">
+   </div>
+   <div id="scalc" class="msg"></div>
+   <button class="b" onclick="orderSmm()">Agiza</button>
+   <div id="smsg" class="msg"></div>
+  </div>
+  <div class="card"><h2>Orders za SMM</h2><div class="wrap"><table id="stable"></table></div></div>
+ </section>
+
+ <section id="t-sales" hidden>
+  <div class="card"><h2>Muhtasari</h2><div id="sum" class="code"></div><div class="msg" id="sumd"></div></div>
+  <div class="card"><h2>Mauzo yote</h2><div class="wrap"><table id="salestable"></table></div></div>
+ </section>
+</main>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-functions-compat.js"></script>
+<script>
+firebase.initializeApp({
+    apiKey: "AIzaSyDu0NxexgUw7cTjBoc5R3quTKd2IgzZpQU",
+    authDomain: "mtaani-panel.firebaseapp.com",
+    projectId: "mtaani-panel",
+    storageBucket: "mtaani-panel.firebasestorage.app",
+    messagingSenderId: "492221973749",
+    appId: "1:492221973749:web:63d0162b8a892aee7f71bc",
+    measurementId: "G-PHFJDLZSPL"
+  });
+const auth = firebase.auth(), db = firebase.firestore(), fn = firebase.functions();
+const call = (n, d) => fn.httpsCallable(n)(d || {}).then(r => r.data);
+const $ = id => document.getElementById(id);
+const USD_KES = 130;
+
+function login(){ auth.signInWithEmailAndPassword($('em').value, $('pw').value).catch(e => $('lerr').textContent = e.message); }
+auth.onAuthStateChanged(u => {
+  $('login').hidden =!!u; $('app').hidden =!u;
+  if (u) { watch(); }
+});
+$('tabs').onclick = e => {
+  const t = e.target.dataset.t; if (!t) return;
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b === e.target));
+  ['num','smm','sales'].forEach(x => $('t-'+x).hidden = x!== t);
+};
+
+let unsub = [];
+function watch(){
+  unsub.forEach(f => f()); unsub = [];
+  unsub.push(db.collection('numbers').orderBy('at','desc').limit(50).onSnapshot(s => renderNums(s.docs.map(d => ({id:d.id,...d.data()})))));
+  unsub.push(db.collection('smm').orderBy('at','desc').limit(50).onSnapshot(s => renderSmm(s.docs.map(d => ({id:d.id,...d.data()})))));
+  unsub.push(db.collection('sales').orderBy('at','desc').limit(200).onSnapshot(s => renderSales(s.docs.map(d => d.data()))));
+}
+const kes = n => 'KES ' + Math.round(n).toLocaleString();
+const when = t => t? t.toDate().toLocaleString() : '';
+function tbl(el, head, rows){
+  el.innerHTML = '<tr>' + head.map(h => '<th>'+h+'</th>').join('') + '</tr>' + (rows.join('') || '<tr><td colspan="9" class="msg">Hakuna bado</td></tr>');
+}
+
+async function balNum(){ try { const r = await call('numBalance'); $('nmsg').textContent = 'Balance: ' + r.balance + ' (RUB)'; } catch(e){ $('nmsg').innerHTML = '<span class="err">'+e.message+'</span>'; } }
+async function buyNum(){
+  const country = $('nc').value.trim().toLowerCase(), product = $('np').value.trim().toLowerCase();
+  const price = +$('nprice').value, cust = $('ncust').value.trim();
+  if (!country ||!product ||!price ||!cust) return $('nmsg').textContent = 'Jaza sehemu zote.';
+  $('nmsg').textContent = 'Inanunua...';
+  try {
+    const r = await call('numBuy', { country, product });
+    await db.collection('numbers').add({ orderId: r.id, phone: r.phone, country, product, customer: cust, price, cost: (r.price||0), status: r.status, sms: [], at: firebase.firestore.FieldValue.serverTimestamp() });
+    $('nmsg').textContent = 'Number: ' + r.phone;
+  } catch(e){ $('nmsg').innerHTML = '<span class="err">'+e.message+'</span>'; }
+}
+function renderNums(list){
+  tbl($('ntable'), ['Mteja','Number','Huduma','Hali','Code','Hatua'], list.map(n =>
+    `<tr><td>${esc(n.customer)}</td><td>${esc(n.phone)}</td><td>${esc(n.product)} / ${esc(n.country)}</td><td>${esc(n.status)}</td>
+     <td><b>${esc((n.sms||[]).map(s => s.code || s.text).join(', '))}</b></td>
+     <td>${n.status==='FINISHED'||n.status==='CANCELED'?'':`<button class="b s" onclick="chk('${n.id}',${n.orderId})">Angalia</button> <button class="b d" onclick="cnl('${n.id}',${n.orderId})">Cancel</button>`}</td></tr>`));
+}
+async function chk(docId, id){
+  const r = await call('numCheck', { id });
+  await db.collection('numbers').doc(docId).update({ status: r.status, sms: r.sms || [] });
+  if ((r.sms||[]).length && r.status!== 'FINISHED'){ await call('numFinish', { id }).catch(()=>{}); await logSale('Number', docId, 'numbers'); }
+}
+async function cnl(docId, id){
+  if (!confirm('Cancel na urudishiwe pesa?')) return;
+  const r = await call('numCancel', { id });
+  await db.collection('numbers').doc(docId).update({ status: r.status || 'CANCELED' });
+}
+
+let services = [];
+async function balSmm(){ try { const r = await call('smmBalance'); $('smsg').textContent = 'Balance: ' + r.balance + ' ' + (r.currency||''); } catch(e){ $('smsg').innerHTML = '<span class="err">'+e.message+'</span>'; } }
+async function loadServices(){ $('sinfo').textContent = 'Inavuta...'; try { services = (await call('smmServices')).list; $('sinfo').textContent = services.length + ' huduma'; renderServices(); } catch(e){ $('sinfo').innerHTML = '<span class="err">'+e.message+'</span>'; } }
+function renderServices(){
+  const q = $('sq').value.toLowerCase();
+  $('ss').innerHTML = services.filter(s => (s.name+' '+s.category).toLowerCase().includes(q)).slice(0,100)
+   .map(s => `<option value="${s.service}">${esc(s.name)} — $${s.rate}/1000</option>`).join('');
+}
+function cur(){ return services.find(s => s.service == $('ss').value); }
+function pickService(){ const s = cur(); if (s) $('sinfo').textContent = `Min ${s.min} / Max ${s.max} • Gharama $${s.rate} kwa 1000`; calc(); }
+function calc(){
+  const s = cur(), q = +$('sqty').value; if (!s ||!q) return $('scalc').textContent = '';
+  const cost = s.rate * q / 1000 * USD_KES, sell = cost * +$('smark').value;
+  $('scalc').textContent = `Gharama ${kes(cost)} • Uza ${kes(sell)} • Faida ${kes(sell-cost)}`;
+  return { cost, sell };
+}
+async function orderSmm(){
+  const s = cur(), q = +$('sqty').value, link = $('slink').value.trim(), cust = $('scust').value.trim();
+  if (!s ||!q ||!link ||!cust) return $('smsg').textContent = 'Jaza sehemu zote.';
+  if (q < +s.min || q > +s.max) return $('smsg').textContent = `Idadi iwe kati ya ${s.min} na ${s.max}.`;
+  const { cost, sell } = calc();
+  $('smsg').textContent = 'Inaagiza...';
+  try {
+    const r = await call('smmOrder', { service: s.service, link, quantity: q });
+    const ref = await db.collection('smm').add({ orderId: r.order, service: s.name, link, quantity: q, customer: cust, cost, price: sell, status: 'Pending', at: firebase.firestore.FieldValue.serverTimestamp() });
+    await logSale('SMM', ref.id, 'smm');
+    $('smsg').textContent = 'Order #' + r.order + ' imetumwa.';
+  } catch(e){ $('smsg').innerHTML = '<span class="err">'+e.message+'</span>'; }
+}
+function renderSmm(list){
+  tbl($('stable'), ['Mteja','Huduma','Idadi','Hali',''], list.map(o =>
+    `<tr><td>${esc(o.customer)}</td><td>${esc(o.service)}</td><td>${o.quantity}</td><td>${esc(o.status)}</td>
+     <td><button class="b s" onclick="stat('${o.id}',${o.orderId})">Angalia</button></td></tr>`));
+}
+async function stat(docId, order){ const r = await call('smmStatus', { order }); await db.collection('smm').doc(docId).update({ status: r.status }); }
+
+async function logSale(type, refId, col){
+  const d = (await db.collection(col).doc(refId).get()).data();
+  const id = type + '_' + refId;
+  const ref = db.collection('sales').doc(id);
+  if ((await ref.get()).exists) return;
+  await ref.set({ type, customer: d.customer, item: d.service || (d.product + ' ' + d.country), price: d.price, cost: d.cost || 0, at: firebase.firestore.FieldValue.serverTimestamp() });
+}
+function renderSales(list){
+  const rev = list.reduce((a,s) => a + s.price, 0), cost = list.reduce((a,s) => a + (s.cost||0), 0);
+  $('sum').textContent = 'Mapato ' + kes(rev);
+  $('sumd').textContent = 'Mauzo ' + list.length + ' • Gharama ' + kes(cost) + ' • Faida ' + kes(rev - cost) + ' (gharama za numbers ziko kwa RUB, angalia mwenyewe)';
+  tbl($('salestable'), ['Tarehe','Mteja','Kitu','Bei'], list.map(s => `<tr><td>${when(s.at)}</td><td>${esc(s.customer)}</td><td>${esc(s.item)}</td><td>${kes(s.price)}</td></tr>`));
+}
+function esc(t){ return String(t?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+</script>
+</body>
+  </html>
